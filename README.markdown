@@ -1,6 +1,6 @@
 # API Importer
 Version: 0.1.0   
-Author: [Rowan Lewis](http://rowanlewis.com/), [Nick Dunn](http://nick-dunn.co.uk/), [Chay Palmer](http://www.chay.com.au/)
+Author: [Rowan Lewis](http://rowanlewis.com/), [Nick Dunn](http://nick-dunn.co.uk/), [Chay Palmer](http://www.chay.com.au/)    
 Build Date: 2010-09-22  
 Requirements: Symphony 2.0.7
 
