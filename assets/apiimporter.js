@@ -22,9 +22,20 @@ var XmlImporter = {
 		$('ol.namespaces-duplicator').symphonyDuplicator({
 			orderable:	true
 		});
+		
+		$('ol.headers-duplicator').symphonyDuplicator({
+			orderable:	true
+		});
+				
+		$('ol.parameters-duplicator').symphonyDuplicator({
+			orderable:	true
+		});
+		
 		$('ol.section-fields').symphonyDuplicator({
 			orderable:	true
 		});
+		
+		
 	},
 	
 	showSectionFields: function(id) {		

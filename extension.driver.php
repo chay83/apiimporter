@@ -1,22 +1,22 @@
 <?php
 	
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimporter.php');
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimportermanager.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.apiimporter.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.apiimportermanager.php');
 	
-	class Extension_XmlImporter extends Extension {
+	class Extension_APIimporter extends Extension {
 	/*-------------------------------------------------------------------------
 		Definition:
 	-------------------------------------------------------------------------*/
 		
 		public function about() {
 			return array(
-				'name'			=> 'XML Importer',
+				'name'			=> 'API Importer',
 				'version'		=> '0.10',
 				'release-date'	=> '2010-01-10',
 				'author'		=> array(
-					'name'			=> 'Nick Dunn, Rowan Lewis'
+					'name'			=> 'Chay Palmer'
 				),
-				'description' => 'Import data from XML documents directly into Symphony.'
+				'description' => 'Import data from api documents directly into Symphony.'
 			);
 		}
 				
@@ -34,7 +34,7 @@
 			return array(
 				array(
 					'location'	=> 'Blueprints',
-					'name'		=> 'XML Importers',
+					'name'		=> 'API Importers',
 					'link'		=> '/importers/'
 				)
 			);
@@ -50,8 +50,8 @@
 		Utilities:
 	-------------------------------------------------------------------------*/
 		
-		public function countXMLImporters() {
-			$xim = new XMLImporterManager($this->_Parent);
+		public function countAPIimporters() {
+			$xim = new APIimporterManager($this->_Parent);
 			$results = 0;
 			
 			foreach ($xim->listAll() as $about) {
@@ -65,8 +65,8 @@
 			return $results;
 		}
 		
-		public function getXMLImporters($column = 'name', $direction = 'asc', $page = 1, $length = 100000) {
-			$xim = new XMLImporterManager($this->_Parent);
+		public function getAPIimporters($column = 'name', $direction = 'asc', $page = 1, $length = 100000) {
+			$xim = new APIimporterManager($this->_Parent);
 			$results = array();
 			
 			foreach ($xim->listAll() as $about) {
@@ -81,27 +81,27 @@
 			
 			// Sorting:
 			if ($column == 'name') {
-				usort($results, array($this, 'getXMLImportersSortByName'));
+				usort($results, array($this, 'getAPIimportersSortByName'));
 			}
 			
 			else if ($column == 'description') {
-				usort($results, array($this, 'getXMLImportersSortByDescription'));
+				usort($results, array($this, 'getAPIimportersSortByDescription'));
 			}
 			
 			else if ($column == 'url') {
-				usort($results, array($this, 'getXMLImportersSortByURL'));
+				usort($results, array($this, 'getAPIimportersSortByURL'));
 			}
 			
 			else if ($column == 'elements') {
-				usort($results, array($this, 'getXMLImportersSortByElements'));
+				usort($results, array($this, 'getAPIimportersSortByElements'));
 			}
 			
 			else if ($column == 'modified') {
-				usort($results, array($this, 'getXMLImportersSortByModified'));
+				usort($results, array($this, 'getAPIimportersSortByModified'));
 			}
 			
 			else if ($column == 'author') {
-				usort($results, array($this, 'getXMLImportersSortByAuthor'));
+				usort($results, array($this, 'getAPIimportersSortByAuthor'));
 			}
 			
 			if ($direction != 'asc') {
@@ -114,32 +114,32 @@
 			return $results;
 		}
 		
-		protected function getXMLImportersSortByName($a, $b) {
+		protected function getAPIimportersSortByName($a, $b) {
 			return strcmp($a['about']['name'], $b['about']['name']);
 		}
 		
-		protected function getXMLImportersSortByDescription($a, $b) {
+		protected function getAPIimportersSortByDescription($a, $b) {
 			return strcmp($a['about']['description'], $b['about']['description']);
 		}
 		
-		protected function getXMLImportersSortByURL($a, $b) {
+		protected function getAPIimportersSortByURL($a, $b) {
 			return strcmp($a['source'], $b['source']);
 		}
 		
-		protected function getXMLImportersSortByElements($a, $b) {
+		protected function getAPIimportersSortByElements($a, $b) {
 			return strcmp($a['included-elements'], $b['included-elements']);
 		}
 		
-		protected function getXMLImportersSortByModified($a, $b) {
+		protected function getAPIimportersSortByModified($a, $b) {
 			return strtotime($a['about']['updated']) > strtotime($b['about']['updated']);
 		}
 		
-		protected function getXMLImportersSortByAuthor($a, $b) {
+		protected function getAPIimportersSortByAuthor($a, $b) {
 			return strcmp($a['about']['author']['name'], $b['about']['author']['name']);
 		}
 		
-		public function getXMLImporter($name) {
-			$xim = new XMLImporterManager($this->_Parent);
+		public function getAPIimporter($name) {
+			$xim = new APIimporterManager($this->_Parent);
 			$importer = $xim->create($name);
 			
 			$data = $importer->options();
@@ -148,9 +148,9 @@
 			return $data;
 		}
 		
-		public function setXMLImporter(&$name, &$error, $new) {
-			$template = file_get_contents(EXTENSIONS . '/xmlimporter/templates/xml-importer.php');
-			$old = (!empty($name) ? $this->getXMLImporter($name) : array());
+		public function setAPIimporter(&$name, &$error, $new) {
+			$template = file_get_contents(EXTENSIONS . '/apiimporter/templates/api-importer.php');
+			$old = (!empty($name) ? $this->getAPIimporter($name) : array());
 			
 			// Update author:
 			if (!isset($new['about']['author'])) {
@@ -179,7 +179,7 @@
 			
 			$filemode = $this->_Parent->Configuration->get('write_mode', 'file');
 			$filename = sprintf(
-				'%s/xml-importers/xml-importer.%s.php',
+				'%s/api-importers/api-importer.%s.php',
 				$rootdir, $name
 			);
 			$dirmode = $this->_Parent->Configuration->get('write_mode', 'directory');
@@ -232,8 +232,12 @@
 				var_export($new['included-elements'], true),
 				var_export($new['namespaces'], true),
 				var_export($new['source'], true),
+				var_export($new['headers'], true),
+				var_export($new['parameters'], true),
 				var_export($new['section'], true),
-				var_export($new['unique-field'], true)
+				var_export($new['unique-field'], true),
+				var_export($new['method'], true),
+				var_export($new['text'], true)
 			);
 			
 			// Write file to disk:

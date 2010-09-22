@@ -1,6 +1,6 @@
 <?php
 	
-	class XMLImporterManager extends Manager {
+	class APIimporterManager extends Manager {
 		protected $_sort_column = '';
 		protected $_sort_direction = '';
 		protected $paths = array();
@@ -9,8 +9,8 @@
 			parent::__construct($parent);
 			
 			$this->paths = array(
-				WORKSPACE . '/xml-importers',
-				EXTENSIONS . '/xmlimporter/xml-importers'
+				WORKSPACE . '/api-importers',
+				EXTENSIONS . '/apiimporter/api-importers'
 			);
 			
 			$extensionManager = new ExtensionManager($parent);
@@ -18,7 +18,7 @@
 			
 			if (is_array($extensions) and !empty($extensions)) {
 				foreach ($extensions as $handle) {
-					$path = EXTENSIONS . "/$e/xml-importers";
+					$path = EXTENSIONS . "/$e/api-importers";
 					
 					if (@is_dir($path)) $this->paths[] = $path;
 				}
@@ -27,22 +27,22 @@
 		
 		public function __find($name) {
 			foreach ($this->paths as $path) {
-				if (@is_file("{$path}/xml-importer.{$name}.php")) return $path;
+				if (@is_file("{$path}/api-importer.{$name}.php")) return $path;
 			}
 			
 			return false;
 		}
 		
 		public function __getHandleFromFilename($name) {
-			return preg_replace(array('/^xml-importer./i', '/.php$/i'), '', $name);
+			return preg_replace(array('/^api-importer./i', '/.php$/i'), '', $name);
 		}
 
 		public function __getDriverPath($name) {	        
-			return $this->__getClassPath($name) . "/xml-importer.$name.php";
+			return $this->__getClassPath($name) . "/api-importer.$name.php";
 		}        
 
 		public function __getClassName($name) {
-			return 'xmlimporter' . str_replace('-', '_', $name);
+			return 'apiimporter' . str_replace('-', '_', $name);
 		}
 
 		public function __getClassPath($name) {
@@ -77,7 +77,7 @@
 			$result = array();
 			
 			foreach ($this->paths as $path) {
-				$structure = General::listStructure($path, '/xml-importer.[\w-]+.php/', false, 'ASC', $path);
+				$structure = General::listStructure($path, '/api-importer.[\w-]+.php/', false, 'ASC', $path);
 				
 				if (is_array($structure['filelist']) and !empty($structure['filelist'])) {
 					foreach ($structure['filelist'] as $file) {
@@ -85,7 +85,7 @@
 						
 						if ($about = $this->about($file)) {
 							$classname = $this->__getClassName($file);
-							$path .= "/xml-importer.{$name}.php";
+							$path .= "/api-importer.{$name}.php";
 							
 							$about['handle'] = $file;
 							$about['for-each'] = @call_user_func(array(&$classname, 'getRootExpression'));

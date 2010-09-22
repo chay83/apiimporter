@@ -4,10 +4,10 @@
 	require_once(TOOLKIT . '/class.administrationpage.php');
 	require_once(TOOLKIT . '/class.sectionmanager.php');
 	
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimporter.php');
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimportermanager.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.apiimporter.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.apiimportermanager.php');
 	
-	class contentExtensionXmlImporterImporters extends AdministrationPage {
+	class contentExtensionAPIimporterImporters extends AdministrationPage {
 		protected $_handle = '';
 		protected $_action = '';
 		protected $_driver = null;
@@ -27,8 +27,8 @@
 		public function __construct(&$parent){
 			parent::__construct($parent);
 			
-			$this->_uri = URL . '/symphony/extension/xmlimporter';
-			$this->_driver = $this->_Parent->ExtensionManager->create('xmlimporter');
+			$this->_uri = URL . '/symphony/extension/APIimporter';
+			$this->_driver = $this->_Parent->ExtensionManager->create('APIimporter');
 		}
 		
 		public function build($context) {
@@ -52,7 +52,7 @@
 	-------------------------------------------------------------------------*/
 		
 		public function __prepareRun($context) {
-			$importManager = new XmlImporterManager($this->_Parent);
+			$importManager = new APIimporterManager($this->_Parent);
 			$source = null;
 			
 			if (isset($_GET['source'])) {
@@ -65,7 +65,7 @@
 				$importer = $importManager->create($handle);
 				$status = $importer->validate($source);
 				
-				if ($status == XMLImporter::__OK__) {
+				if ($status == APIimporter::__OK__) {
 					$importer->commit();
 				}
 				
@@ -78,8 +78,8 @@
 		
 		public function __viewRun() {
 			$this->setPageType('form');
-			$this->setTitle(__('Symphony') . ' &ndash; ' . __('XML Importers') . ' &ndash; ' . __('Run'));
-			$this->appendSubheading("<a href=\"{$this->_uri}/importers/\">" . __('XML Importers') . "</a> &raquo; " . __('Run'));
+			$this->setTitle(__('Symphony') . ' &ndash; ' . __('API Importers') . ' &ndash; ' . __('Run'));
+			$this->appendSubheading("<a href=\"{$this->_uri}/importers/\">" . __('API Importers') . "</a> &raquo; " . __('Run'));
 			
 			foreach ($this->_runs as $run) {
 				$importer = $run['importer'];
@@ -92,7 +92,7 @@
 				$fieldset->appendChild(new XMLElement('legend', $about['name']));
 				
 				// Markup invalid:
-				if ($status == XMLImporter::__ERROR_PREPARING__) {
+				if ($status == APIimporter::__ERROR_PREPARING__) {
 					$fieldset->appendChild(new XMLElement(
 						'h3', 'Import Failed'
 					));
@@ -107,7 +107,7 @@
 				}
 				
 				// Invalid entry:
-				else if ($status == XMLImporter::__ERROR_VALIDATING__) {
+				else if ($status == APIimporter::__ERROR_VALIDATING__) {
 					$fieldset->appendChild(new XMLElement(
 						'h3', 'Import Failed'
 					));
@@ -145,13 +145,13 @@
 					// Source -------------------------------------------------
 						
 						$entry = $current['element'];
-						$xml = new DOMDocument();
-						$xml->preserveWhiteSpace = false;
-						$xml->formatOutput = true;
+						$api = new DOMDocument();
+						$api->preserveWhiteSpace = false;
+						$api->formatOutput = true;
 						
-						$xml->loadXML($entry->ownerDocument->saveXML($entry));
+						$api->loadXML($entry->ownerDocument->saveXML($entry));
 						
-						$source = htmlentities($xml->saveXML($xml->documentElement), ENT_COMPAT, 'UTF-8');
+						$source = htmlentities($api->saveXML($api->documentElement), ENT_COMPAT, 'UTF-8');
 						
 						$fieldset->appendChild(new XMLElement(
 							'pre', "<code>{$source}</code>"
@@ -210,7 +210,7 @@
 		
 		public function __prepareEdit($context) {
 			if ($this->_editing = $context[0] == 'edit') {
-				$this->_fields = $this->_driver->getXMLImporter($context[1]);
+				$this->_fields = $this->_driver->getAPIimporter($context[1]);
 			}
 			
 			$this->_handle = $context[1];
@@ -278,11 +278,50 @@
 			if (@$_POST['fields']['discover-namespaces'] == 'yes') {
 				$gateway = new Gateway();
 				$gateway->init();
-				$gateway->setopt('URL', $this->_fields['source']);
+				$url = $this->_fields['source'];				
+				
+				if(isset($this->_fields['parameters'])){
+				
+					switch ($this->_fields['method'])
+					{
+						case 'GET':
+							$params = "";
+							
+							foreach($this->_fields['parameters'] as $param){
+								$params .= $param["name"] . '=' . $param["value"];
+								$params .= "&";				
+							}
+							
+							$params = substr($params, 0, strlen($params)-1);
+							
+							$url .= "?";
+							$url .= $params;
+							
+							break;
+							
+						case 'POST':							
+							$params = array();
+							
+							foreach($this->_fields['parameters'] as $param){
+								$params[$param['name']] = $param['value']; 
+							}							
+
+							$gateway->setopt('POST');
+							$gateway->setopt('POSTFIELDS',$params);
+							
+							break;
+							
+					}
+													
+				}
+				
+				$gateway->setopt('URL', $url);
+				$gateway->setopt('RETURNHEADERS',1);
 				$gateway->setopt('TIMEOUT', 6);
+				
 				$data = $gateway->exec();
 				
-				preg_match_all('/xmlns:([a-z][a-z-0-9\-]*)="([^\"]+)"/i', $data, $matches);
+				preg_match_all('/apins:([a-z][a-z-0-9\-]*)="([^\"]+)"/i', $data, $matches);
 				
 				if (isset($matches[2][0])) {
 					$namespaces = array();
@@ -316,7 +355,7 @@
 			
 			$name = $this->_handle;
 			
-			if (!$this->_driver->setXMLImporter($name, $error, $this->_fields)) {
+			if (!$this->_driver->setAPIimporter($name, $error, $this->_fields)) {
 				$this->_valid = false;
 				$this->_errors['other'] = $error;
 				return;
@@ -339,13 +378,13 @@
 			$config = Administration::instance()->Configuration;
 			
 			if ($config->get('version', 'symphony') == '2.0.6') {
-				$this->addScriptToHead(URL . '/extensions/xmlimporter/assets/symphony.orderable.js', 101);
-				$this->addStylesheetToHead(URL . '/extensions/xmlimporter/assets/symphony.duplicator.css', 'screen', 101);
-				$this->addScriptToHead(URL . '/extensions/xmlimporter/assets/symphony.duplicator.js', 102);
+				$this->addScriptToHead(URL . '/extensions/apiimporter/assets/symphony.orderable.js', 101);
+				$this->addStylesheetToHead(URL . '/extensions/apiimporter/assets/symphony.duplicator.css', 'screen', 101);
+				$this->addScriptToHead(URL . '/extensions/apiimporter/assets/symphony.duplicator.js', 102);
 			}
 			
-			$this->addStylesheetToHead(URL . '/extensions/xmlimporter/assets/xmlimporter.css', 'screen', 103);
-			$this->addScriptToHead(URL . '/extensions/xmlimporter/assets/xmlimporter.js', 104);
+			$this->addStylesheetToHead(URL . '/extensions/apiimporter/assets/apiimporter.css', 'screen', 103);
+			$this->addScriptToHead(URL . '/extensions/apiimporter/assets/apiimporter.js', 104);
 			
 		// Status: ------------------------------------------------------------
 			
@@ -371,11 +410,11 @@
 				if ($action) $this->pageAlert(
 					__(
 						$action, array(
-							__('XML Importer'), 
+							__('api Importer'), 
 							DateTimeObj::get(__SYM_TIME_FORMAT__), 
-							URL . '/symphony/extension/xmlimporter/importers/new/', 
-							URL . '/symphony/extension/xmlimporter/importers/',
-							__('XML Importers')
+							URL . '/symphony/extension/apiimporter/importers/new/', 
+							URL . '/symphony/extension/apiimporter/importers/',
+							__('API Importers')
 						)
 					),
 					Alert::SUCCESS
@@ -385,10 +424,10 @@
 		// Header: ------------------------------------------------------------
 			
 			$this->setPageType('form');
-			$this->setTitle(__('Symphony') . ' &ndash; ' . __('XML Importers') . ' &ndash; ' . (
+			$this->setTitle(__('Symphony') . ' &ndash; ' . __('API Importers') . ' &ndash; ' . (
 				@$this->_fields['about']['name'] ? $this->_fields['about']['name'] : __('Untitled')
 			));
-			$this->appendSubheading("<a href=\"{$this->_uri}/importers/\">" . __('XML Importers') . "</a> &raquo; " . (
+			$this->appendSubheading("<a href=\"{$this->_uri}/importers/\">" . __('API Importers') . "</a> &raquo; " . (
 				@$this->_fields['about']['name'] ? $this->_fields['about']['name'] : __('Untitled')
 			));
 			
@@ -442,13 +481,195 @@
 			
 			$help = new XMLElement('p');
 			$help->setAttribute('class', 'help');
-			$help->setValue(__('Enter the URL of the XML document you want to process.'));
+			$help->setValue(__('Enter the URL of the api document you want to process.'));
 			$fieldset->appendChild($help);
 			
-			$label = new XMLElement('h3', __('Namespace Declarations'));
-			$label->setAttribute('class', 'label');
+		// Method -------------------------------------------------------------
+			
+			$label = Widget::Label(__('Method'));	
+			
+			$options = array('POST','GET');
+			
+			foreach($options as $option){
+				if($option == $this->_fields['method']){
+				$optar[] = array($option,true,$option);
+				}else{
+				$optar[] = array($option,false,$option);
+				}
+			}	
+			
+			
+			$label->appendChild(Widget::Select(
+				'fields[method]',$optar, General::sanitize(@$this->_fields['method'])
+			));
+			
+			if (isset($this->_errors['method'])) {
+				$label = Widget::wrapFormElementWithError($label, $this->_errors['method']);
+			}
+			
 			$fieldset->appendChild($label);
 			
+			$help = new XMLElement('p');
+			$help->setAttribute('class', 'help');
+			$help->setValue(__('The method you wish to use to send your parameters'));
+			$fieldset->appendChild($help);
+		
+			
+		
+		// Headers ---------------------------------------------------------
+			
+			$headers = new XMLElement('ol');
+			$headers->setAttribute('class', 'headers-duplicator');
+			
+			if (isset($this->_fields['headers']) and is_array($this->_fields['headers'])) {
+				foreach ($this->_fields['headers'] as $index => $data) {
+					$name = "fields[headers][{$index}]";
+					
+					$li = new XMLElement('li');
+					$li->appendChild(new XMLElement('h4', __('Header')));
+					
+					$group = new XMLElement('div');
+					$group->setAttribute('class', 'group');
+					
+					$label = Widget::Label(__('Name'));
+					
+					$input = Widget::Input(
+						"{$name}[name]",
+						General::sanitize(@$data['name'])
+					);
+					$label->appendChild($input);
+					$group->appendChild($label);
+					
+					$label = Widget::Label(__('Value'));
+					$input = Widget::Input(
+						"{$name}[uri]",
+						General::sanitize(@$data['value'])
+					);
+					$label->appendChild($input);
+					$group->appendChild($label);
+					
+					$li->appendChild($group);
+					$headers->appendChild($li);
+				}
+			}
+			
+			$name = "fields[headers][-1]";
+			
+			$li = new XMLElement('li');
+			$li->appendChild(new XMLElement('h4', __('Header')));
+			$li->setAttribute('class', 'template');
+			
+			$input = Widget::Input("{$name}[field]", $field_id, 'hidden');
+			$li->appendChild($input);
+			
+			$group = new XMLElement('div');
+			$group->setAttribute('class', 'group');
+			
+			$label = Widget::Label(__('Name'));
+			$input = Widget::Input("{$name}[name]");
+			$label->appendChild($input);
+			$group->appendChild($label);
+			
+			$label = Widget::Label(__('Value'));
+			$input = Widget::Input("{$name}[value]");
+			$label->appendChild($input);
+			$group->appendChild($label);
+			
+			$li->appendChild($group);
+			$headers->appendChild($li);
+			
+			$fieldset->appendChild($headers);
+			
+			$help = new XMLElement('p');
+			$help->setAttribute('class', 'help');
+			$help->setValue(__('see <a href="http://www.php.net/manual/en/function.curl-setopt.php" target="_blank">curl-setopt()</a> for information on possible values'));
+			$fieldset->appendChild($help);
+		
+		// Parameters ---------------------------------------------------------
+			
+			$parameters = new XMLElement('ol');
+			$parameters->setAttribute('class', 'parameters-duplicator');
+			
+			if (isset($this->_fields['parameters']) and is_array($this->_fields['parameters'])) {
+				foreach ($this->_fields['parameters'] as $index => $data) {
+					$name = "fields[parameters][{$index}]";
+					
+					$li = new XMLElement('li');
+					$li->appendChild(new XMLElement('h4', __('Parameter')));
+					
+					$group = new XMLElement('div');
+					$group->setAttribute('class', 'group');
+					
+					$label = Widget::Label(__('Name'));
+					$input = Widget::Input(
+						"{$name}[name]",
+						General::sanitize(@$data['name'])
+					);
+					$label->appendChild($input);
+					$group->appendChild($label);
+					
+					$label = Widget::Label(__('Value'));
+					$input = Widget::Input(
+						"{$name}[value]",
+						General::sanitize(@$data['value'])
+					);
+					$label->appendChild($input);
+					$group->appendChild($label);
+					
+					$li->appendChild($group);
+					$parameters->appendChild($li);
+				}
+			}
+			
+			$name = "fields[parameters][-1]";
+			
+			$li = new XMLElement('li');
+			$li->appendChild(new XMLElement('h4', __('Parameter')));
+			$li->setAttribute('class', 'template');
+			
+			$input = Widget::Input("{$name}[field]", $field_id, 'hidden');
+			$li->appendChild($input);
+			
+			$group = new XMLElement('div');
+			$group->setAttribute('class', 'group');
+			
+			$label = Widget::Label(__('Name'));
+			$input = Widget::Input("{$name}[name]");
+			$label->appendChild($input);
+			$group->appendChild($label);
+			
+			$label = Widget::Label(__('Value'));
+			$input = Widget::Input("{$name}[value]");
+			$label->appendChild($input);
+			$group->appendChild($label);
+			
+			$li->appendChild($group);
+			$parameters->appendChild($li);
+			
+			$fieldset->appendChild($parameters);
+	
+		// Text -------------------------------------------------------------
+			
+			$label = Widget::Label(__('Text'));	
+			
+			$label->appendChild(Widget::Textarea(
+				'fields[text]',5,10, General::sanitize(@$this->_fields['text'])
+			));
+			
+			if (isset($this->_errors['text'])) {
+				$label = Widget::wrapFormElementWithError($label, $this->_errors['text']);
+			}
+			
+			$fieldset->appendChild($label);
+			
+			$help = new XMLElement('p');
+			$help->setAttribute('class', 'help');
+			$help->setValue(__('Additional text you wish to send with the request, could be in the form of XML or Json'));
+			$fieldset->appendChild($help);
+		
+		
+		
+				
 		// Namespaces ---------------------------------------------------------
 			
 			$namespaces = new XMLElement('ol');
@@ -546,7 +767,7 @@
 			
 			$help = new XMLElement('p');
 			$help->setAttribute('class', 'help');
-			$help->setValue(__('Use an XPath expression to select which elements from the source XML to include.'));
+			$help->setValue(__('Use an XPath expression to select which elements from the source api to include.'));
 			$fieldset->appendChild($help);
 			
 			$this->Form->appendChild($fieldset);
@@ -728,7 +949,7 @@
 			$div->setAttribute('class', 'actions');
 			$div->appendChild(
 				Widget::Input('action[save]',
-					($this->_editing ? __('Save Changes') : __('Create XML Importer')),
+					($this->_editing ? __('Save Changes') : __('Create API Importer')),
 					'submit', array(
 						'accesskey'		=> 's'
 					)
@@ -740,7 +961,7 @@
 				$button->setAttributeArray(array(
 					'name'		=> 'action[delete]',
 					'class'		=> 'confirm delete',
-					'title'		=> __('Delete this XML Importer')
+					'title'		=> __('Delete this API Importer')
 				));
 				$div->appendChild($button);
 			}
@@ -799,7 +1020,7 @@
 				'length'	=> $this->_Parent->Configuration->get('pagination_maximum_rows', 'symphony')
 			);
 			
-			$this->_importers = $this->_driver->getXMLImporters(
+			$this->_importers = $this->_driver->getAPIimporters(
 				$this->_table_column,
 				$this->_table_direction,
 				$this->_pagination->page,
@@ -813,7 +1034,7 @@
 				? $this->_pagination->length
 				: $start + count($this->_importers)
 			);
-			$this->_pagination->total = $this->_driver->countXMLImporters();
+			$this->_pagination->total = $this->_driver->countAPIimporters();
 			$this->_pagination->pages = ceil(
 				$this->_pagination->total / $this->_pagination->length
 			);
@@ -826,7 +1047,7 @@
 				switch ($_POST['with-selected']) {
 					case 'delete':
 						foreach ($checked as $name) {
-							$data = $this->_driver->getXMLImporter($name);
+							$data = $this->_driver->getAPIimporter($name);
 							
 							General::deleteFile($data['about']['file']);
 						}
@@ -849,11 +1070,11 @@
 		
 		public function __viewIndex() {
 			$this->setPageType('table');
-			$this->setTitle(__('Symphony') . ' &ndash; ' . __('XML Importers'));
+			$this->setTitle(__('Symphony') . ' &ndash; ' . __('API Importers'));
 			
-			$this->appendSubheading(__('XML Importers'), Widget::Anchor(
+			$this->appendSubheading(__('API Importers'), Widget::Anchor(
 				__('Create New'), "{$this->_uri}/importers/new/",
-				__('Create a new XML Importer'), 'create button'
+				__('Create a new API Importer'), 'create button'
 			));
 			
 			$tableHead = array();

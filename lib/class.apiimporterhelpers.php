@@ -1,8 +1,8 @@
 <?php
 	
-	class XMLImporterHelpers {
+	class APIimporterHelpers {
 		static function markdownify($string) {
-			require_once(EXTENSIONS . '/xmlimporter/lib/markdownify/markdownify_extra.php');
+			require_once(EXTENSIONS . '/apiimporter/lib/markdownify/markdownify_extra.php');
 			$markdownify = new Markdownify(true, MDFY_BODYWIDTH, false);
 			
 			$markdown = $markdownify->parseString($string);

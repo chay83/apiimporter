@@ -1,8 +1,8 @@
 <?php
 	
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimporter.php');
+	//require_once(EXTENSIONS . '/apiimporter/lib/class.apiimporter.php');
 	
-	class XMLImporter%s extends XMLImporter {
+	class APIimporter%s extends APIimporter {
 		public function __construct(&$parent) {
 			parent::__construct($parent);
 		}
@@ -29,8 +29,12 @@
 				'included-elements'	=> %s,
 				'namespaces'		=> %s,
 				'source'			=> %s,
+				'headers'			=> %s,
+				'parameters'		=> %s,
 				'section'			=> %s,
-				'unique-field'		=> %s
+				'unique-field'		=> %s,
+				'method'			=> %s,
+				'text'				=> %s
 			);
 		}
 		

@@ -5,9 +5,10 @@
 	require_once(TOOLKIT . '/class.entrymanager.php');
 	require_once(TOOLKIT . '/class.sectionmanager.php');
 	
-	require_once(EXTENSIONS . '/xmlimporter/lib/class.xmlimporterhelpers.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.apiimporterhelpers.php');
+	require_once(EXTENSIONS . '/apiimporter/lib/class.json_to_xml.php');
 	
-	class XMLImporter {
+	class APIimporter {
 		const __OK__ = 100;
 		const __ERROR_PREPARING__ = 200;
 		const __ERROR_VALIDATING__ = 210;
@@ -37,7 +38,7 @@
 			return $this->_errors;
 		}
 		
-		protected function getExpressionValue($xml, $entry, $xpath, $expression) {
+		protected function getExpressionValue($api, $entry, $xpath, $expression) {
 			$matches = $xpath->evaluate($expression, $entry);
 
 			if ($matches instanceof DOMNodeList) {
@@ -49,7 +50,7 @@
 					}
 					
 					else {
-						$values[] = $xml->saveXML($match);
+						$values[] = $api->saveXML($match);
 					}
 				}
 				
@@ -64,8 +65,8 @@
 		}
 		
 		public function validate($source = null) {
-			if (!function_exists('handleXMLError')) {
-				function handleXMLError($errno, $errstr, $errfile, $errline, $context) {
+			if (!function_exists('handleapiError')) {
+				function handleapiError($errno, $errstr, $errfile, $errline, $context) {
 					$context['self']->_errors[] = $errstr;
 				}
 			}
@@ -74,7 +75,7 @@
 			$fieldManager = new FieldManager($this->_Parent);
 			
 			set_time_limit(900);
-			set_error_handler('handleXMLError');
+			set_error_handler('handleapiError');
 			
 			$self = $this; // Fucking PHP...
 			$options = $this->options();
@@ -83,25 +84,91 @@
 				$options['source'] = $source;
 			}
 			
+			
 			// Fetch document:
 			$gateway = new Gateway();
 			$gateway->init();
-			$gateway->setopt('URL', $options['source']);
-			$gateway->setopt('TIMEOUT', 6);
-			$data = $gateway->exec();
 			
+			$url = $options['source'];
+			if(count($options['parameters'] > 0)){
+							
+				switch ($options['method'])
+				{
+					case 'GET':
+						$params = "";
+						
+						
+						foreach($options['parameters'] as $param){
+							$params .= urlencode($param["name"]) . '=' . urlencode($param["value"]);
+							$params .= "&";				
+						}
+						
+						$params = substr($params, 0, strlen($params)-1);
+						
+						if($options["text"] = ''){
+							$params.= "data=" . urlencode($options["text"]);
+						}
+						
+						;
+						
+						$url .= "?" . $params;
+						
+						break;
+						
+					case 'POST':							
+						$params = array();
+						
+						foreach($options['parameters'] as $param){
+							$params[$param['name']] = $param['value']; 
+						}							
+						
+						if(isset($options["text"])){
+							$params["data"] = $options["text"];
+						}
+
+						$gateway->setopt('POST');
+						$gateway->setopt('POSTFIELDS',$params);
+						
+						break;
+						
+				}
+												
+			}
+							
+			$gateway->setopt('URL', $url);
+			$gateway->setopt('TIMEOUT', 6);
+			
+			if (is_array($options['headers'])) {
+				foreach ($options['headers'] as $header) {
+					$gateway->setopt($header['name'], $header['value']);
+				}
+			}
+			
+			$data = $gateway->exec();
+			$result = $gateway->getInfoLast();
+			$content_type = $result['content_type'];
+			$content_type = explode(";",$content_type);
+			$content_type = $content_type[0];
+			
+			if(preg_match('/json/',$content_type) or preg_match('/x-javascript/',$content_type)){
+				$data = Json_to_xml::convert($data);	
+			
+			}
+
 			if (empty($data)) {
 				$this->_errors[] = __('No data to import.');
 				$passed = false;
 			}
 			
+			
 			// Load document:
-			$xml = new DOMDocument();
-			$xml->loadXML($data);
+			$api = new DOMDocument();
+			
+			$api->loadXML($data);
 			
 			restore_error_handler();
 			
-			$xpath = new DOMXPath($xml);
+			$xpath = new DOMXPath($api);
 			$passed = true;
 			
 			// Register namespaces:
@@ -111,10 +178,12 @@
 				}
 			}
 			
+					
 			// Invalid Markup:
-			if (empty($xml)) {
+			if (empty($api)) {
 				$passed = false;
 			}
+			
 			
 			// Invalid Expression:
 			else if (($entries = $xpath->query($options['included-elements'])) === false) {
@@ -159,7 +228,7 @@
 				);
 				
 				foreach ($options['fields'] as $mapping) {
-					$values = $this->getExpressionValue($xml, $entry, $xpath, $mapping['xpath'], $debug);
+					$values = $this->getExpressionValue($api, $entry, $xpath, $mapping['xpath'], $debug);
 					
 					if (isset($mapping['php']) && $mapping['php'] != '') {
 						$php = stripslashes($mapping['php']);
